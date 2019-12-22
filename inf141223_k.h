@@ -13,7 +13,8 @@
 typedef struct session_t session_t;
 typedef struct message_t message_t;
 
-enum msg_type {
+enum msg_type
+{
     OUTGOING_TO_USER,
     INCOMING_FROM_USER,
     OUTGOING_TO_GROUP,
@@ -27,12 +28,14 @@ enum msg_type {
     SHOW_ACTIVE_REQ
 };
 
-struct session_t {
+struct session_t
+{
     int ipc;
     int uid;
 };
 
-struct message_t {
+struct message_t
+{
     int type;
     char content[MAX_MSG_SIZE];
 };
