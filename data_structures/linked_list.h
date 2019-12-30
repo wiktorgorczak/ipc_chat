@@ -1,6 +1,5 @@
-//
-// Created by wiktor on 22.12.2019.
-//
+// LinkedList implementation for Algorithms and Data Structeres classes
+// Filip Szostak (141320) and Wiktor Gorczak (141223)
 
 #ifndef IPC_IM_LINKED_LIST_H
 #define IPC_IM_LINKED_LIST_H
@@ -66,6 +65,38 @@ void deleteList(ListElement *start) {
         currentElement=start;
     }
 
+}
+
+ListElement* removeElement(ListElement *start, int value) {
+    ListElement *before = start;
+    ListElement *current;
+
+    if(before == NULL) {
+        return NULL;
+    } else if(before->value == value){
+        ListElement *newStart =  before->next;
+        free(before);
+        return newStart;
+    } else if(before->next != NULL) {
+        current = before->next;
+    } else {
+        return start;
+    }
+
+    while(before->next != NULL)
+    {
+        if(current->value == value)
+        {
+            before->next = current->next;
+            free(current);
+            return start;
+        }
+
+        before = before->next;
+        current = before->next;
+    }
+
+    return start;
 }
 
 ListElement *createLinkedList(int array[], int size)

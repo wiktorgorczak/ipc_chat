@@ -1,7 +1,9 @@
 //
-// Created by wiktor on 22.12.2019.
+// Student project for Concurrent Programming class.
+// Student id: 141223
+// Wiktor Gorczak 2020
 //
-
+// Client application header
 #ifndef IPC_IM_INF141223_K_H
 #define IPC_IM_INF141223_K_H
 #define MAX_MSG_SIZE 2137

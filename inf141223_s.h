@@ -9,9 +9,19 @@
 #define MAX_MSG_SIZE 2137
 #define MAX_USR_NAME_SIZE 2137
 #define MAX_GROUP_NAME_SIZE 2137
+#define MAX_PASSWORD_SIZE 2137
+#define SERVER_UID 0
 #define SERVER_USR_NAME "server"
-#define MSG_TYPE 2137
 #define CONFIG "server.ini"
+#define LOGIN_REQ "login"
+#define LOGOFF_REQ "logoff"
+#define ENLIST_REQ "enlist"
+#define UNLIST_REQ "unlist"
+#define GET_USERS_REQ "users"
+#define GET_GROUPS_REQ "groups"
+#define GET_ENLISTED_REQ "enlisted"
+#define GET_ACTIVE_REQ "active"
+
 #define KEY 2137
 #include "data_structures/linked_list.h"
 #include <sys/ipc.h>
@@ -39,7 +49,8 @@ enum msg_type
 struct message_t
 {
     long type;
-    int from_uid;
+    //int from_uid;
+    char from_name[MAX_USR_NAME_SIZE];
     int to_id;
     char content[MAX_MSG_SIZE];
 };
@@ -51,6 +62,7 @@ struct user_t
     char name[MAX_USR_NAME_SIZE];
     ListElement *groups;
     user_t *next;
+    char password[MAX_PASSWORD_SIZE];
 };
 
 struct group_t
@@ -74,18 +86,20 @@ user_t *find_user(int uid, database_t *db);
 group_t *find_group(int gid, database_t *db);
 int create_ipc_for_user(user_t *user);
 void receive_messages(user_t *user, database_t *db);
+void close_all_ipcs(database_t *db);
 
 void process_request(user_t *from, char request[], database_t *db);
 void send_to_user(user_t *from, user_t *to, char content[]);
-void send_to_group(user_t *from, group_t *to, char content[]);
-int enlist(user_t *user, group_t *group, database_t *db);
-int unlist(user_t *user, group_t *group, database_t *db);
-int get_groups_for_user(user_t *user, database_t *db);
-int get_users_for_group(user_t *user, group_t *group, database_t *db);
-int get_active_users(user_t *user, database_t *db);
+void send_to_group(user_t *from, group_t *to, char content[], database_t *db);
+
+const char* enlist(user_t *user, group_t *group);
+const char* unlist(user_t *user, group_t *group);
+const char* get_groups_for_user(user_t *user, database_t *db);
+const char* get_all_groups(database_t *db);
+const char* get_users_for_group(user_t *user, group_t *group, database_t *db);
+const char* get_active_users(user_t *user, database_t *db);
 int login(user_t *user, database_t *db);
-int logoff(user_t *user, database_t *db);
-void log_err(char message[]);
-void log_msg(char message[]);
+const char* logoff(user_t *user);
+void send_server_msg(user_t *user, const char content[]);
 
 #endif //IPC_IM_INF141223_S_H
