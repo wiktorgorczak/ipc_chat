@@ -14,7 +14,8 @@ void quit(int signal)
     {
         printf("Quiting the server...\n");
         //TODO: clean the ipc's
-        exit(EXIT_SUCCESS);
+        quit_flag = true;
+        //exit(EXIT_SUCCESS);
     }
 }
 
@@ -77,7 +78,7 @@ void login(const char* username, const char* password, database_t *db, char* res
         if(strcmp(current->name, username) == 0 && strcmp(current->password, password) == 0)
         {
             int key = KEY + current->id;
-            sprintf(response, "KEY:%d", key);
+            sprintf(response, "OK:%d:%d", key, current->id);
             current->connected = true;
 
             printf("User logged in!");
@@ -102,7 +103,7 @@ void close_all_ipcs(database_t *db)
         {
             printf("[FAILED]\n");
         }
-    } while((current = db->users->next) != NULL);
+    } while((current = current->next) != NULL);
 }
 
 void receive_messages(user_t *user, database_t *db)
@@ -517,7 +518,7 @@ void enlist(user_t *user, group_t *group, char* response)
     if(searchList(group->users, uid) != NULL)
     {
         const char response_text[] = "You are already a member of this group!";
-        snprintf(response, strlen(response_text), response_text);
+        snprintf(response, strlen(response_text) + 1, response_text);
     }
     else
     {
@@ -525,7 +526,7 @@ void enlist(user_t *user, group_t *group, char* response)
         insertListElement(user->groups, gid);
 
         const char response_text[] = "You have successfully become a member of this group!";
-        snprintf(response, strlen(response_text), response_text);
+        snprintf(response, strlen(response_text) + 1, response_text);
     }
 }
 
@@ -539,14 +540,14 @@ void unlist(user_t *user, group_t *group, char* response)
     if(usr == NULL || grp == NULL)
     {
         const char response_text[] = "You are not a member of this group!";
-        snprintf(response, strlen(response_text), response_text);
+        snprintf(response, strlen(response_text) + 1, response_text);
     }
     else
     {
         removeElement(user->groups, gid);
         removeElement(group->users, uid);
         const char response_text[] = "You have successfully become a member of this group!";
-        snprintf(response, strlen(response_text), response_text);
+        snprintf(response, strlen(response_text) + 1, response_text);
     }
 }
 
@@ -572,7 +573,7 @@ void get_groups_for_user(user_t *user, database_t *db, char* response)
         }
         gid = gid->next;
     }
-    snprintf(response, strlen(groups_text), "%s", groups_text);
+    snprintf(response, strlen(groups_text) + 1, "%s", groups_text);
 
 }
 
@@ -591,7 +592,7 @@ void get_all_groups(database_t *db, char* response)
         strcat(groups_text, ", ");
     } while((grp = grp->next) != NULL);
 
-    snprintf(response, strlen(groups_text), "%s", groups_text);
+    snprintf(response, strlen(groups_text) + 1, "%s", groups_text);
 }
 
 void get_users_for_group(group_t *group, database_t *db, char* response)
@@ -616,7 +617,7 @@ void get_users_for_group(group_t *group, database_t *db, char* response)
         uid = uid->next;
     }
 
-    snprintf(response, strlen(users_text), "%s", users_text);
+    snprintf(response, strlen(users_text) + 1, "%s", users_text);
 
 }
 
@@ -639,7 +640,7 @@ void get_active_users(database_t *db, char* response)
 
     } while((usr = usr->next) != NULL);
 
-    snprintf(response, strlen(users_text),"%s", users_text);
+    snprintf(response, strlen(users_text) + 1,"%s", users_text);
 
 }
 
@@ -647,6 +648,6 @@ void logoff(user_t *user, char* response)
 {
     user->connected = false;
     char response_text[] = "You got disconnected from the server.\n";
-    snprintf(response, strlen(response_text), "%s", response_text);
+    snprintf(response, strlen(response_text) + 1, "%s", response_text);
 }
 

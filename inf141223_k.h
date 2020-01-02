@@ -20,6 +20,7 @@
 #include <string.h>
 #include <stdbool.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 typedef struct session_t session_t;
 typedef struct message_t message_t;
@@ -47,10 +48,10 @@ struct session_t
     int uid;
 };
 
-
+void prompt_login(char *credentials);
 
 int run(session_t *session);
-int login(session_t *session);
+int login(char *credentials, session_t *session);
 int logoff(session_t *session);
 int get_active_users(session_t *session);
 int get_users_for_group(int gid, session_t *session);
