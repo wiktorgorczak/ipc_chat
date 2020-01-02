@@ -10,9 +10,12 @@ bool quit_flag = false;
 
 void quit(int signal)
 {
-    printf("Quiting the server...\n");
-    //TODO: clean the ipc's
-    exit(EXIT_SUCCESS);
+    if(signal == SIGINT)
+    {
+        printf("Quiting the server...\n");
+        //TODO: clean the ipc's
+        exit(EXIT_SUCCESS);
+    }
 }
 
 int main(int argc, char* argv[])
@@ -203,7 +206,10 @@ void process_request(user_t *user, char request[], database_t *db)
             send_server_msg(user, "You should provide exactly one argument.\n");
             return;
         }
-        group_t *group = find_group(atoi(param), db);
+
+        int param_num = (int) strtol(param, (char**) NULL, 10);
+        group_t *group = find_group(param_num, db);
+
         if(group == NULL)
         {
             send_server_msg(user, "Could not find selected group.\n");
@@ -229,7 +235,8 @@ void process_request(user_t *user, char request[], database_t *db)
             send_server_msg(user, "You should provide exactly one argument.\n");
             return;
         }
-        group_t *group = find_group(atoi(param), db);
+        int param_num = (int) strtol(param, (char**) NULL, 10);
+        group_t *group = find_group(param_num, db);
         if(group == NULL)
         {
             send_server_msg(user, "Could not find selected group.\n");
@@ -245,7 +252,9 @@ void process_request(user_t *user, char request[], database_t *db)
             send_server_msg(user, "You should provide exactly one argument.\n");
             return;
         }
-        group_t *group = find_group(atoi(param), db);
+
+        int param_num = (int) strtol(param, (char**) NULL, 10);
+        group_t *group = find_group(param_num, db);
         if(group == NULL)
         {
             send_server_msg(user, "Could not find selected group.\n");
@@ -295,7 +304,7 @@ int setup(char filename[], database_t *db)
         if(strcmp(key_id, "GID") == 0)
         {
             group_t *group = malloc(sizeof(group_t));
-            group->id = atoi(id);
+            group->id = (int) strtol(id, (char**) NULL, 10);
             if(strcmp("NAME", key_name) == 0)
             {
                 strcpy(group->name, name);
@@ -323,7 +332,7 @@ int setup(char filename[], database_t *db)
             char *groups = strtok(NULL, ":");
 
             user_t *user = malloc(sizeof(user_t));
-            user->id = atoi(id);
+            user->id = (int) strtol(id, (char**) NULL, 10);
 
             strcpy(user->password, password);
 //            if(user->id == PUBLIC_UID)
@@ -347,7 +356,7 @@ int setup(char filename[], database_t *db)
             {
                 do
                 {
-                    int gid = atoi(gid_str);
+                    int gid = (int) strtol(gid_str, (char**) NULL, 10);
                     group_t *group = find_group(gid, db);
                     if(group != NULL)
                     {
@@ -497,7 +506,7 @@ int create_ipc_for_user(user_t *user)
     {
         key = KEY + user->id; //This should some complicated random algorithm
     }
-    return msgget(key, 0666 | IPC_CREAT);
+    return msgget(key, 0666 | IPC_CREAT); // NOLINT(hicpp-signed-bitwise)
 }
 
 void enlist(user_t *user, group_t *group, char* response)
