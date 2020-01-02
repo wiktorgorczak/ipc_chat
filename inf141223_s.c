@@ -24,7 +24,6 @@ int main(int argc, char* argv[])
     int exit_code = 0;
     printf("Server started. Press CTRL+D to terminate.\n");
 
-    printf("Setting up configuration...");
     if((exit_code = setup(CONFIG, db)) != 0)
     {
         exit(exit_code);
@@ -45,10 +44,44 @@ void run(database_t *db)
             receive_messages(current, db);
         } while((current = current->next) != NULL);
         usleep(1000);
+
+        receive_login_req(db);
     }
 
     close_all_ipcs(db);
     free(db);
+}
+
+void receive_login_req(database_t *db)
+{
+    message_t login_req;
+    if(msgrcv(db->public_user->ipc, &login_req, sizeof(login_req), PUBLIC_REQ, IPC_NOWAIT) != -1)
+    {
+        char* username = strtok(login_req.content, ":");
+        char* password = strtok(NULL, ":");
+
+        send_server_msg(db->public_user, login(username, password, db));
+    }
+}
+
+const char* login(const char* username, const char* password, database_t *db)
+{
+    user_t *current = db->users;
+    char response[MAX_MSG_SIZE];
+    do
+    {
+        if(strcmp(current->name, username) == 0 && strcmp(current->password, password) == 0)
+        {
+            int key = KEY + current->id;
+            sprintf(response, "KEY:%d", key);
+            current->connected = true;
+
+            return response;
+        }
+    } while((current = current->next) != NULL);
+
+    sprintf(response, "Incorrect login or/and password!\n");
+    return response;
 }
 
 void close_all_ipcs(database_t *db)
@@ -239,7 +272,14 @@ int setup(char filename[], database_t *db)
 
     while(getline(&line, &len, fp) > 0)
     {
-        char *key_id = strtok(line, ":");
+        //char *formatted_line = strchr(line, '\n');
+        char formatted_line[10000];
+        strcpy(formatted_line, line);
+        char *buffer = strchr(formatted_line, '\n');
+        if(buffer != NULL)
+            *buffer = '\0';
+
+        char *key_id = strtok(formatted_line, ":");
         char *id = strtok(NULL, ":");
         char *key_name = strtok(NULL, ":");
         char *name = strtok(NULL, ":");
@@ -248,7 +288,7 @@ int setup(char filename[], database_t *db)
         {
             group_t *group = malloc(sizeof(group_t));
             group->id = atoi(id);
-            if(strcpy("NAME", key_name) == 0)
+            if(strcmp("NAME", key_name) == 0)
             {
                 strcpy(group->name, name);
             }
@@ -271,10 +311,18 @@ int setup(char filename[], database_t *db)
         }
         else if(strcmp(key_id, "UID") == 0)
         {
+            char* password = strtok(NULL,":");
             char *groups = strtok(NULL, ":");
 
             user_t *user = malloc(sizeof(user_t));
             user->id = atoi(id);
+
+            strcpy(user->password, password);
+//            if(user->id == PUBLIC_UID)
+//            {
+//                printf("ERROR: You cannot user public uid for private account!\n");
+//                return(EXIT_FAILURE);
+//            }
 
             if(strcmp("NAME", key_name) == 0)
             {
@@ -326,8 +374,7 @@ int setup(char filename[], database_t *db)
                 user->next = tail;
             }
 
-            char* password = strtok(NULL, ":");
-            strcpy(user->password, password);
+
         }
         else
         {
@@ -342,7 +389,48 @@ int setup(char filename[], database_t *db)
         free(line);
     }
 
+    printf("Creating public IPC... ");
+//    int public_ipc = create_public_ipc();
+//    if(public_ipc == -1)
+//    {
+//        printf("[FAILED]\n");
+//        return EXIT_FAILURE;
+//    }
+//    else
+//    {
+//        db->public_ipc = public_ipc;
+//        printf("[DONE]\n");
+//    }
+
+    if(setup_public_user(db) != 0)
+    {
+        return EXIT_FAILURE;
+    }
+
+    if(db->public_user->ipc = create_ipc_for_user(db->public_user) == -1)
+    {
+        printf("[FAILED]\n");
+        return EXIT_FAILURE;
+    }
+    else
+    {
+        printf("[DONE]\n");
+    }
+
     return EXIT_SUCCESS;
+}
+
+int setup_public_user(database_t *db)
+{
+    user_t *usr = malloc(sizeof(user_t));
+
+    usr->id = PUBLIC_UID;
+    strcpy(usr->name, PUBLIC_USER_NAME);
+    usr->connected = true;
+
+    db->public_user = usr;
+
+    return 0;
 }
 
 user_t *find_user(int uid, database_t *db)
@@ -519,6 +607,4 @@ const char* logoff(user_t *user)
     char response[] = "You got disconnected from the server.\n";
     return response;
 }
-
-
 

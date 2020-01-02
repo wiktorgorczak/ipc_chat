@@ -7,6 +7,14 @@
 #ifndef IPC_IM_INF141223_K_H
 #define IPC_IM_INF141223_K_H
 #define MAX_MSG_SIZE 2137
+#define MAX_USR_NAME_SIZE 2137
+#define MAX_GROUP_NAME_SIZE 2137
+#define MAX_PASSWORD_SIZE 2137
+#define SERVER_UID 0
+#define SERVER_PUBLIC_IPC_KEY 100
+#define SERVER_USR_NAME "server"
+#define PUBLIC_USER_NAME "server"
+#define PUBLIC_UID 0
 #include <sys/ipc.h>
 #include <sys/msg.h>
 #include <string.h>
@@ -18,16 +26,19 @@ typedef struct message_t message_t;
 enum msg_type
 {
     OUTGOING_TO_USER,
-    INCOMING_FROM_USER,
     OUTGOING_TO_GROUP,
-    INCOMING_FROM_GROUP,
-    LOGIN_REQ,
-    LOGOFF_REQ,
-    ENLIST_REQ,
-    UNLIST_REQ,
-    SHOW_GROUPS_REQ,
-    SHOW_USER_REQ,
-    SHOW_ACTIVE_REQ
+    SERVER_REQ,
+    INCOMING,
+    PUBLIC_REQ
+};
+
+struct message_t
+{
+    long type;
+    //int from_uid;
+    char from_name[MAX_USR_NAME_SIZE];
+    int to_id;
+    char content[MAX_MSG_SIZE];
 };
 
 struct session_t

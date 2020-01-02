@@ -11,8 +11,11 @@
 #define MAX_GROUP_NAME_SIZE 2137
 #define MAX_PASSWORD_SIZE 2137
 #define SERVER_UID 0
+#define SERVER_PUBLIC_IPC_KEY 100
 #define SERVER_USR_NAME "server"
-#define CONFIG "server.ini"
+#define PUBLIC_USER_NAME "server"
+#define PUBLIC_UID 0
+#define CONFIG "config_s.ini"
 #define LOGIN_REQ "login"
 #define LOGOFF_REQ "logoff"
 #define ENLIST_REQ "enlist"
@@ -43,7 +46,8 @@ enum msg_type
     OUTGOING_TO_USER,
     OUTGOING_TO_GROUP,
     SERVER_REQ,
-    INCOMING
+    INCOMING,
+    PUBLIC_REQ
 };
 
 struct message_t
@@ -77,6 +81,7 @@ struct database_t
 {
     struct user_t *users;
     struct group_t *groups;
+    user_t *public_user;
 };
 
 int setup(char filename[], database_t *db);
@@ -87,6 +92,8 @@ group_t *find_group(int gid, database_t *db);
 int create_ipc_for_user(user_t *user);
 void receive_messages(user_t *user, database_t *db);
 void close_all_ipcs(database_t *db);
+void receive_login_req(database_t *db);
+int setup_public_user(database_t *db);
 
 void process_request(user_t *from, char request[], database_t *db);
 void send_to_user(user_t *from, user_t *to, char content[]);
@@ -98,8 +105,9 @@ const char* get_groups_for_user(user_t *user, database_t *db);
 const char* get_all_groups(database_t *db);
 const char* get_users_for_group(user_t *user, group_t *group, database_t *db);
 const char* get_active_users(user_t *user, database_t *db);
-int login(user_t *user, database_t *db);
+const char* login(const char* username, const char* password, database_t *db);
 const char* logoff(user_t *user);
 void send_server_msg(user_t *user, const char content[]);
+int create_public_ipc();
 
 #endif //IPC_IM_INF141223_S_H
