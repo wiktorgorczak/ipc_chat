@@ -99,14 +99,14 @@ void process_request(user_t *from, char request[], database_t *db);
 void send_to_user(user_t *from, user_t *to, char content[]);
 void send_to_group(user_t *from, group_t *to, char content[], database_t *db);
 
-const char* enlist(user_t *user, group_t *group);
-const char* unlist(user_t *user, group_t *group);
-const char* get_groups_for_user(user_t *user, database_t *db);
-const char* get_all_groups(database_t *db);
-const char* get_users_for_group(user_t *user, group_t *group, database_t *db);
-const char* get_active_users(user_t *user, database_t *db);
-const char* login(const char* username, const char* password, database_t *db);
-const char* logoff(user_t *user);
+void enlist(user_t *user, group_t *group, char* response);
+void unlist(user_t *user, group_t *group, char* response);
+void get_groups_for_user(user_t *user, database_t *db, char *response);
+void get_all_groups(database_t *db, char* response);
+void get_users_for_group(group_t *group, database_t *db, char* response);
+void get_active_users(database_t *db, char* response);
+void login(const char* username, const char* password, database_t *db, char* response);
+void logoff(user_t *user, char* response);
 void send_server_msg(user_t *user, const char content[]);
 int create_public_ipc();
 

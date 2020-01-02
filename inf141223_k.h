@@ -19,6 +19,7 @@
 #include <sys/msg.h>
 #include <string.h>
 #include <stdbool.h>
+#include <stdio.h>
 
 typedef struct session_t session_t;
 typedef struct message_t message_t;
@@ -35,7 +36,6 @@ enum msg_type
 struct message_t
 {
     long type;
-    //int from_uid;
     char from_name[MAX_USR_NAME_SIZE];
     int to_id;
     char content[MAX_MSG_SIZE];
@@ -47,13 +47,8 @@ struct session_t
     int uid;
 };
 
-struct message_t
-{
-    int type;
-    char content[MAX_MSG_SIZE];
-};
 
-int setup(char filename[], session_t *session);
+
 int run(session_t *session);
 int login(session_t *session);
 int logoff(session_t *session);

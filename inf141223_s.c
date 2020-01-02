@@ -8,7 +8,7 @@
 
 bool quit_flag = false;
 
-void quit()
+void quit(int signal)
 {
     printf("Quiting the server...\n");
     //TODO: clean the ipc's
@@ -18,11 +18,11 @@ void quit()
 int main(int argc, char* argv[])
 {
     database_t *db = malloc(sizeof(database_t));
-    signal(SIGTERM, quit);
+    signal(SIGINT, quit);
     db->users = NULL;
     db->groups = NULL;
     int exit_code = 0;
-    printf("Server started. Press CTRL+D to terminate.\n");
+    printf("Server started. Press CTRL+C to terminate.\n");
 
     if((exit_code = setup(CONFIG, db)) != 0)
     {
@@ -55,19 +55,20 @@ void run(database_t *db)
 void receive_login_req(database_t *db)
 {
     message_t login_req;
+    char response[MAX_MSG_SIZE];
     if(msgrcv(db->public_user->ipc, &login_req, sizeof(login_req), PUBLIC_REQ, IPC_NOWAIT) != -1)
     {
         char* username = strtok(login_req.content, ":");
         char* password = strtok(NULL, ":");
 
-        send_server_msg(db->public_user, login(username, password, db));
+        login(username, password, db, response);
+        send_server_msg(db->public_user, response);
     }
 }
 
-const char* login(const char* username, const char* password, database_t *db)
+void login(const char* username, const char* password, database_t *db, char* response)
 {
     user_t *current = db->users;
-    char response[MAX_MSG_SIZE];
     do
     {
         if(strcmp(current->name, username) == 0 && strcmp(current->password, password) == 0)
@@ -76,12 +77,12 @@ const char* login(const char* username, const char* password, database_t *db)
             sprintf(response, "KEY:%d", key);
             current->connected = true;
 
-            return response;
+            printf("User logged in!");
+
+            return;
         }
     } while((current = current->next) != NULL);
-
     sprintf(response, "Incorrect login or/and password!\n");
-    return response;
 }
 
 void close_all_ipcs(database_t *db)
@@ -184,14 +185,16 @@ void process_request(user_t *user, char request[], database_t *db)
 {
     char *req = strtok(request, " ");
     char *param = strtok(NULL, " ");
+    char response[MAX_MSG_SIZE];
 
     if(strcmp(req, LOGOFF_REQ) == 0)
     {
-        logoff(user);
+        logoff(user, response);
     }
     else if(strcmp(req, GET_ACTIVE_REQ) == 0)
     {
-        send_server_msg(user, get_active_users(user, db));
+        get_active_users(db, response);
+        send_server_msg(user, response);
     }
     else if(strcmp(req, GET_USERS_REQ) == 0)
     {
@@ -206,15 +209,18 @@ void process_request(user_t *user, char request[], database_t *db)
             send_server_msg(user, "Could not find selected group.\n");
             return;
         }
-        send_server_msg(user, get_users_for_group(user, group, db));
+        get_users_for_group(group, db, response);
+        send_server_msg(user, response);
     }
     else if(strcmp(req, GET_GROUPS_REQ) == 0)
     {
-        send_server_msg(user, get_all_groups(db));
+        get_all_groups(db, response);
+        send_server_msg(user, response);
     }
     else if(strcmp(req, GET_ENLISTED_REQ) == 0)
     {
-        send_server_msg(user, get_groups_for_user(user, db));
+        get_groups_for_user(user, db, response);
+        send_server_msg(user, response);
     }
     else if(strcmp(req, ENLIST_REQ) == 0)
     {
@@ -229,7 +235,8 @@ void process_request(user_t *user, char request[], database_t *db)
             send_server_msg(user, "Could not find selected group.\n");
             return;
         }
-        send_server_msg(user, enlist(user, group));
+        enlist(user, group, response);
+        send_server_msg(user, response);
     }
     else if(strcmp(req, UNLIST_REQ) == 0)
     {
@@ -244,7 +251,8 @@ void process_request(user_t *user, char request[], database_t *db)
             send_server_msg(user, "Could not find selected group.\n");
             return;
         }
-        send_server_msg(user, unlist(user, group));
+        unlist(user, group, response);
+        send_server_msg(user, response);
     }
     else
     {
@@ -407,7 +415,7 @@ int setup(char filename[], database_t *db)
         return EXIT_FAILURE;
     }
 
-    if(db->public_user->ipc = create_ipc_for_user(db->public_user) == -1)
+    if((db->public_user->ipc = create_ipc_for_user(db->public_user)) == -1)
     {
         printf("[FAILED]\n");
         return EXIT_FAILURE;
@@ -480,11 +488,19 @@ int create_ipc_for_user(user_t *user)
         return -1;
     }
 
-    key_t key = KEY + user->id;
+    key_t key;
+    if(user->id == PUBLIC_UID)
+    {
+        key = SERVER_PUBLIC_IPC_KEY;
+    }
+    else
+    {
+        key = KEY + user->id; //This should some complicated random algorithm
+    }
     return msgget(key, 0666 | IPC_CREAT);
 }
 
-const char* enlist(user_t *user, group_t *group)
+void enlist(user_t *user, group_t *group, char* response)
 {
     int uid = user->id;
     int gid = group->id;
@@ -492,7 +508,7 @@ const char* enlist(user_t *user, group_t *group)
     if(searchList(group->users, uid) != NULL)
     {
         const char response_text[] = "You are already a member of this group!";
-        return response_text;
+        snprintf(response, strlen(response_text), response_text);
     }
     else
     {
@@ -500,11 +516,11 @@ const char* enlist(user_t *user, group_t *group)
         insertListElement(user->groups, gid);
 
         const char response_text[] = "You have successfully become a member of this group!";
-        return response_text;
+        snprintf(response, strlen(response_text), response_text);
     }
 }
 
-const char* unlist(user_t *user, group_t *group)
+void unlist(user_t *user, group_t *group, char* response)
 {
     int uid = user->id;
     int gid = group->id;
@@ -514,18 +530,18 @@ const char* unlist(user_t *user, group_t *group)
     if(usr == NULL || grp == NULL)
     {
         const char response_text[] = "You are not a member of this group!";
-        return response_text;
+        snprintf(response, strlen(response_text), response_text);
     }
     else
     {
         removeElement(user->groups, gid);
         removeElement(group->users, uid);
         const char response_text[] = "You have successfully become a member of this group!";
-        return response_text;
+        snprintf(response, strlen(response_text), response_text);
     }
 }
 
-const char* get_groups_for_user(user_t *user, database_t *db)
+void get_groups_for_user(user_t *user, database_t *db, char* response)
 {
     ListElement *gid = user->groups;
     char groups_text[MAX_MSG_SIZE];
@@ -538,52 +554,64 @@ const char* get_groups_for_user(user_t *user, database_t *db)
         }
         else
         {
+            char id_str[100];
+            sprintf(id_str, "ID: %d ", grp->id);
+            strcat(groups_text, id_str);
+
             strcat(groups_text, grp->name);
             strcat(groups_text, ", ");
         }
         gid = gid->next;
     }
+    snprintf(response, strlen(groups_text), "%s", groups_text);
 
-    return groups_text;
 }
 
-const char* get_all_groups(database_t *db)
+void get_all_groups(database_t *db, char* response)
 {
     group_t *grp = db->groups;
     char groups_text[MAX_MSG_SIZE];
 
     do
     {
+        char id_str[100];
+        sprintf(id_str, "ID: %d ", grp->id);
+        strcat(groups_text, id_str);
+
         strcat(groups_text, grp->name);
         strcat(groups_text, ", ");
     } while((grp = grp->next) != NULL);
 
-    return groups_text;
+    snprintf(response, strlen(groups_text), "%s", groups_text);
 }
 
-const char* get_users_for_group(user_t *user, group_t *group, database_t *db)
+void get_users_for_group(group_t *group, database_t *db, char* response)
 {
     ListElement *uid = group->users;
     char users_text[MAX_MSG_SIZE];
     while(uid != NULL)
     {
         user_t *usr = find_user(uid->value, db);
-        if(uid == NULL)
+        if(usr == NULL)
         {
             printf("Database contains incorrect data!\n");
         }
         else
         {
+            char uid_str[100];
+            sprintf(uid_str, "ID: %d ", usr->id);
+            strcat(users_text, uid_str);
             strcat(users_text, usr->name);
             strcat(users_text, ", ");
         }
         uid = uid->next;
     }
 
-    return users_text;
+    snprintf(response, strlen(users_text), "%s", users_text);
+
 }
 
-const char* get_active_users(user_t *user, database_t *db)
+void get_active_users(database_t *db, char* response)
 {
     user_t *usr = db->users;
     char users_text[MAX_MSG_SIZE];
@@ -592,19 +620,24 @@ const char* get_active_users(user_t *user, database_t *db)
     {
         if(usr->connected)
         {
+            char uid_str[100];
+            sprintf(uid_str, "ID: %d ", usr->id);
+            strcat(users_text, uid_str);
+
             strcat(users_text, usr->name);
             strcat(users_text, ", ");
         }
 
     } while((usr = usr->next) != NULL);
 
-    return users_text;
+    snprintf(response, strlen(users_text),"%s", users_text);
+
 }
 
-const char* logoff(user_t *user)
+void logoff(user_t *user, char* response)
 {
     user->connected = false;
-    char response[] = "You got disconnected from the server.\n";
-    return response;
+    char response_text[] = "You got disconnected from the server.\n";
+    snprintf(response, strlen(response_text), "%s", response_text);
 }
 
