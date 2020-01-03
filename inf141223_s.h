@@ -16,7 +16,6 @@
 #define PUBLIC_USER_NAME "server"
 #define PUBLIC_UID 0
 #define CONFIG "config_s.ini"
-#define LOGIN_REQ "login"
 #define LOGOFF_REQ "logoff"
 #define ENLIST_REQ "enlist"
 #define UNLIST_REQ "unlist"
@@ -43,7 +42,7 @@ typedef struct message_t message_t;
 
 enum msg_type
 {
-    OUTGOING_TO_USER,
+    OUTGOING_TO_USER = 1,
     OUTGOING_TO_GROUP,
     SERVER_REQ,
     INCOMING,
@@ -108,6 +107,5 @@ void get_active_users(database_t *db, char* response);
 void login(const char* username, const char* password, database_t *db, char* response);
 void logoff(user_t *user, char* response);
 void send_server_msg(user_t *user, const char content[]);
-int create_public_ipc();
 
 #endif //IPC_IM_INF141223_S_H

@@ -21,13 +21,17 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
+#include <pthread.h>
+#include <signal.h>
 
 typedef struct session_t session_t;
 typedef struct message_t message_t;
+typedef int command_t;
 
 enum msg_type
 {
-    OUTGOING_TO_USER,
+    OUTGOING_TO_USER = 1,
     OUTGOING_TO_GROUP,
     SERVER_REQ,
     INCOMING,
@@ -44,11 +48,16 @@ struct message_t
 
 struct session_t
 {
-    int ipc;
+    int ipc_key;
+    int ipc_main_thread;
     int uid;
+    char username[MAX_USR_NAME_SIZE];
 };
 
 void prompt_login(char *credentials);
+void *refresh_chat(void *vargp);
+void compose_message(session_t *session);
+void quit(int signal);
 
 int run(session_t *session);
 int login(char *credentials, session_t *session);

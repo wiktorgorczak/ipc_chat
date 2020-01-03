@@ -6,9 +6,21 @@
 // Client application source
 #include "inf141223_k.h"
 
+bool quit_flag = false;
+
+void quit(int signal)
+{
+    if(signal == SIGINT)
+    {
+        printf("\nQuiting the client...\n");
+        quit_flag = true;
+        exit(EXIT_SUCCESS);
+    }
+}
+
 void prompt_login(char *credentials)
 {
-    //TODO: documentation about this
+    //TODO: documentation on this
     char login[MAX_MSG_SIZE/2];
     char password[MAX_MSG_SIZE/2 - 1];
 
@@ -65,19 +77,82 @@ int login(char *credentials, session_t *session)
     char *private_ipc_key = strtok(NULL, ":");
     int private_ipc_key_num = (int) strtol(private_ipc_key, (char**) NULL, 10);
 
-    session->ipc = msgget(private_ipc_key_num, 0666|IPC_CREAT);
+    session->ipc_main_thread = msgget(private_ipc_key_num, 0666|IPC_CREAT);
+    session->ipc_key = private_ipc_key_num;
 
     char *uid_str = strtok(NULL, ":");
     int uid = (int) strtol(uid_str, (char**) NULL, 10);
 
-    session->uid;
+    session->uid = uid;
+
+    char* username = strtok(credentials, ":");
+    snprintf(session->username, strlen(username) + 1, "%s", username);
 
     free(msg);
     return 0;
 }
 
+void *refresh_chat(void *vargp)
+{
+    session_t *session = (session_t*) vargp;
+    int ipc = msgget(session->ipc_key, 0666|IPC_CREAT);
+    while(!quit_flag)
+    {
+        message_t msg;
+        msgrcv(ipc, &msg, sizeof(msg), INCOMING, 0);
+        printf("[%s]: %s\n", msg.from_name, msg.content);
+        sleep(1);
+    }
+
+    msgctl(ipc, IPC_RMID, NULL);
+}
+
+void compose_message(session_t *session)
+{
+    command_t cmd;
+    printf("What kind of message do you want to send?\n1) To user 2) To group 3) Server command\nChoice: ");
+    scanf("%d", &cmd);
+
+    message_t msg;
+    snprintf(msg.from_name, strlen(session->username) + 1, "%s", session->username);
+
+    if(cmd == OUTGOING_TO_USER)
+    {
+        msg.type = OUTGOING_TO_USER;
+
+        printf("Enter uid: ");
+        scanf("%d", &msg.to_id);
+        printf("Enter message (max %d characters): ", MAX_MSG_SIZE - 2);
+        scanf("%s", msg.content);
+    }
+    else if(cmd == OUTGOING_TO_GROUP)
+    {
+        msg.type = OUTGOING_TO_GROUP;
+
+        printf("Enter gid: ");
+        scanf("%d", &msg.to_id);
+        printf("Enter message (max %d characters): ", MAX_MSG_SIZE - 2);
+        scanf("%s", msg.content);
+    }
+    else if(cmd == SERVER_REQ)
+    {
+        msg.type = SERVER_REQ;
+        msg.to_id = SERVER_UID;
+        printf("Enter command: ");
+        scanf("%s", msg.content);
+    }
+    else
+    {
+        printf("Incorrect command!\n");
+        return;
+    }
+    msgsnd(session->ipc_main_thread, &msg, sizeof(msg), 0);
+}
+
 int main(int argc, char **argv)
 {
+    signal(SIGINT, quit);
+
     char credentials[MAX_MSG_SIZE];
     *credentials = '\0';
     session_t *session = malloc(sizeof(session_t));
@@ -88,7 +163,17 @@ int main(int argc, char **argv)
         prompt_login(credentials);
     } while(login(credentials, session) != 0);
 
-    msgctl(session->ipc, IPC_RMID, NULL);
+    //msgctl(session->ipc, IPC_RMID, NULL);
     printf("Logged in successfully!\n");
+
+    pthread_t receiving_thread;
+    pthread_create(&receiving_thread, NULL, refresh_chat, (void *)session);
+
+    while(!quit_flag)
+    {
+        compose_message(session);
+    }
+
+    msgctl(session->ipc_main_thread, IPC_RMID, NULL);
     return 0;
 }

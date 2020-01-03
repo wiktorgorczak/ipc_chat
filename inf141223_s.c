@@ -21,6 +21,7 @@ void quit(int signal)
 
 int main(int argc, char* argv[])
 {
+    printf("Expected size: %d", sizeof(message_t));
     database_t *db = malloc(sizeof(database_t));
     signal(SIGINT, quit);
     db->users = NULL;
@@ -110,20 +111,23 @@ void receive_messages(user_t *user, database_t *db)
 {
     message_t outgoing_to_user, outgoing_to_group, server_request;
 
-    if(msgrcv(user->ipc, &outgoing_to_user, sizeof(outgoing_to_user), OUTGOING_TO_USER, IPC_NOWAIT) != -1)
+    if(msgrcv(user->ipc, &outgoing_to_user, sizeof(message_t), OUTGOING_TO_USER, IPC_NOWAIT) == 0)
     {
+        printf("Got user to user massage!\n");
         user_t *to = find_user(outgoing_to_user.to_id, db);
 
         send_to_user(user, to, outgoing_to_user.content);
     }
-    if(msgrcv(user->ipc, &outgoing_to_group, sizeof(outgoing_to_group), OUTGOING_TO_GROUP, IPC_NOWAIT) != -1)
+    if(msgrcv(user->ipc, &outgoing_to_group, sizeof(message_t), OUTGOING_TO_GROUP, IPC_NOWAIT) == 0)
     {
+        printf("Got user to group message!\n");
         group_t *to = find_group(outgoing_to_group.to_id, db);
 
         send_to_group(user, to, outgoing_to_group.content, db);
     }
-    if(msgrcv(user->ipc, &server_request, sizeof(server_request), SERVER_REQ, IPC_NOWAIT) != -1)
+    if(msgrcv(user->ipc, &server_request, sizeof(message_t), SERVER_REQ, IPC_NOWAIT) == 0)
     {
+        printf("Got server request!\n");
         process_request(user, server_request.content, db);
     }
 }
