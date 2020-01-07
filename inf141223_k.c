@@ -25,13 +25,15 @@ void prompt_login(char *credentials)
     char password[MAX_MSG_SIZE/2 - 1];
 
     printf("Enter your login: ");
-    scanf("%s", login);
+//    scanf("%s", login);
+    scan_string(login);
     char *login_buffer = strchr(login, '\n');
     if(login_buffer != NULL)
         *login_buffer = '\0';
 
     printf("Enter your password: ");
-    scanf("%s", password);
+    scan_string(password);
+//    scanf("%s", password);
 
     char *password_buffer = strchr(login, '\n');
     if(password_buffer != NULL)
@@ -100,18 +102,49 @@ void *refresh_chat(void *vargp)
     {
         message_t msg;
         msgrcv(ipc, &msg, sizeof(msg), INCOMING, 0);
-        printf("[%s]: %s\n", msg.from_name, msg.content);
+        printf("\n[%s]: %s\n", msg.from_name, msg.content);
+
+        if(strcmp(msg.from_name, "server") == 0 && strcmp(msg.content, "You got disconnected from the server.\n") == 0)
+            exit(EXIT_SUCCESS);
         sleep(1);
     }
 
     msgctl(ipc, IPC_RMID, NULL);
 }
 
+void scan_decimal(int *dest)
+{
+    static char buffer[MAX_MSG_SIZE];
+    memset(buffer, 0, strlen(buffer));
+    fgets(buffer, sizeof(buffer), stdin);
+    sscanf(buffer, "%d", dest);
+}
+
+void scan_string(char *dest)
+{
+    size_t max_msg_size = MAX_MSG_SIZE;
+//    static char buffer[MAX_MSG_SIZE];
+//    memset(buffer, 0, strlen(buffer));
+//    fgets(dest, sizeof(dest), stdin);
+   // sscanf(buffer, "%s", dest);
+   getline(&dest, &max_msg_size, stdin);
+
+   for(int i = 0; i < MAX_MSG_SIZE; i++)
+   {
+       if(dest[i] == '\n')
+       {
+           dest[i] = '\0';
+           break;
+       }
+   }
+}
+
 void compose_message(session_t *session)
 {
     command_t cmd;
     printf("What kind of message do you want to send?\n1) To user 2) To group 3) Server command\nChoice: ");
-    scanf("%d", &cmd);
+//    scanf("%d", &cmd);
+    scan_decimal(&cmd);
 
     message_t msg;
     snprintf(msg.from_name, strlen(session->username) + 1, "%s", session->username);
@@ -121,25 +154,30 @@ void compose_message(session_t *session)
         msg.type = OUTGOING_TO_USER;
 
         printf("Enter uid: ");
-        scanf("%d", &msg.to_id);
+//        scanf("%d", &msg.to_id);
+        scan_decimal(&msg.to_id);
         printf("Enter message (max %d characters): ", MAX_MSG_SIZE - 2);
-        scanf("%s", msg.content);
+//        scanf("%s", msg.content);
+        scan_string(msg.content);
     }
     else if(cmd == OUTGOING_TO_GROUP)
     {
         msg.type = OUTGOING_TO_GROUP;
 
         printf("Enter gid: ");
-        scanf("%d", &msg.to_id);
+//        scanf("%d", &msg.to_id);
+        scan_decimal(&msg.to_id);
         printf("Enter message (max %d characters): ", MAX_MSG_SIZE - 2);
-        scanf("%s", msg.content);
+//        scanf("%s", msg.content);
+        scan_string(msg.content);
     }
     else if(cmd == SERVER_REQ)
     {
         msg.type = SERVER_REQ;
         msg.to_id = SERVER_UID;
         printf("Enter command: ");
-        scanf("%s", msg.content);
+//        scanf("%s", msg.content);
+        scan_string(msg.content);
     }
     else
     {

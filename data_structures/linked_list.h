@@ -31,8 +31,9 @@ ListElement *insertListElement(ListElement* start, int value) {
 
     ListElement* lastElement = start;
     ListElement* currentElement = start->next;
+
     while(currentElement != NULL) {
-        if(currentElement->value > value) {
+        if(value < currentElement->value) {
             newElement->next = currentElement;
             lastElement->next = newElement;
             break;
@@ -41,6 +42,10 @@ ListElement *insertListElement(ListElement* start, int value) {
         currentElement = currentElement->next;
     }
 
+    if(currentElement == NULL)
+    {
+        lastElement->next = newElement;
+    }
     return start;
 }
 

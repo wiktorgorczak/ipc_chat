@@ -105,6 +105,16 @@ void close_all_ipcs(database_t *db)
             printf("[FAILED]\n");
         }
     } while((current = current->next) != NULL);
+
+    printf("Removing IPC for server... ");
+    if(msgctl(db->public_user->ipc, IPC_RMID, NULL) == 0)
+    {
+        printf("[DONE]\n");
+    }
+    else
+    {
+        printf("[FAILED]\n");
+    }
 }
 
 void receive_messages(user_t *user, database_t *db)
@@ -198,6 +208,7 @@ void process_request(user_t *user, char request[], database_t *db)
     if(strcmp(req, LOGOFF_REQ) == 0)
     {
         logoff(user, response);
+        send_server_msg(user,response);
     }
     else if(strcmp(req, GET_ACTIVE_REQ) == 0)
     {
@@ -365,13 +376,14 @@ int setup(char filename[], database_t *db)
                     group_t *group = find_group(gid, db);
                     if(group != NULL)
                     {
-                        insertListElement(user->groups, gid);
-                        insertListElement(group->users, user->id);
+                        user->groups = insertListElement(user->groups, gid);
+                        group->users = insertListElement(group->users, user->id);
                     }
                     else
                     {
                         printf("No such group error!\n");
                     }
+
                 } while((gid_str = strtok(NULL, ",")) != NULL);
             }
 
@@ -526,8 +538,8 @@ void enlist(user_t *user, group_t *group, char* response)
     }
     else
     {
-        insertListElement(group->users, uid);
-        insertListElement(user->groups, gid);
+        group->users = insertListElement(group->users, uid);
+        user->groups = insertListElement(user->groups, gid);
 
         const char response_text[] = "You have successfully become a member of this group!";
         snprintf(response, strlen(response_text) + 1, response_text);
@@ -548,8 +560,8 @@ void unlist(user_t *user, group_t *group, char* response)
     }
     else
     {
-        removeElement(user->groups, gid);
-        removeElement(group->users, uid);
+        user->groups = removeElement(user->groups, gid);
+        group->users = removeElement(group->users, uid);
         const char response_text[] = "You have successfully become a member of this group!";
         snprintf(response, strlen(response_text) + 1, response_text);
     }

@@ -59,6 +59,9 @@ void *refresh_chat(void *vargp);
 void compose_message(session_t *session);
 void quit(int signal);
 
+void scan_string(char *dest);
+void scan_decimal(int *dest);
+
 int run(session_t *session);
 int login(char *credentials, session_t *session);
 int logoff(session_t *session);
