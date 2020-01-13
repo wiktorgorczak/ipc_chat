@@ -12,6 +12,7 @@
 #define MAX_PASSWORD_SIZE 2137
 #define SERVER_UID 0
 #define SERVER_PUBLIC_IPC_KEY 100
+#define THREAD_FINISHED 100
 #define SERVER_USR_NAME "server"
 #define PUBLIC_USER_NAME "server"
 #define PUBLIC_UID 0
@@ -33,12 +34,14 @@
 #include <unistd.h>
 #include <stdio.h>
 #include <fcntl.h>
+#include <pthread.h>
 #include <signal.h>
 
 typedef struct user_t user_t;
 typedef struct group_t group_t;
 typedef struct database_t database_t;
 typedef struct message_t message_t;
+typedef struct thread_arg_t thread_arg_t;
 
 enum msg_type
 {
@@ -65,7 +68,13 @@ struct user_t
     char name[MAX_USR_NAME_SIZE];
     ListElement *groups;
     user_t *next;
+    pthread_t thread;
     char password[MAX_PASSWORD_SIZE];
+};
+
+struct thread_arg_t {
+    user_t *user;
+    database_t *db;
 };
 
 struct group_t
@@ -81,6 +90,7 @@ struct database_t
     struct user_t *users;
     struct group_t *groups;
     user_t *public_user;
+    pthread_mutex_t mutex;
 };
 
 int setup(char filename[], database_t *db);
@@ -90,9 +100,13 @@ user_t *find_user(int uid, database_t *db);
 group_t *find_group(int gid, database_t *db);
 int create_ipc_for_user(user_t *user);
 void receive_messages(user_t *user, database_t *db);
-void close_all_ipcs(database_t *db);
+void close_ipc(user_t *user, database_t *db);
+void close_server_ipc(database_t *db);
 void receive_login_req(database_t *db);
 int setup_public_user(database_t *db);
+void *user_thread(void *vargp);
+void finish_all_threads(database_t *db);
+void run_thread_for_user(database_t *db, user_t *user);
 
 void process_request(user_t *from, char request[], database_t *db);
 void send_to_user(user_t *from, user_t *to, char content[]);

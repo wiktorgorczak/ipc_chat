@@ -51,7 +51,7 @@ int login(char *credentials, session_t *session)
     char from[] = "new";
     message_t *msg = malloc(sizeof(message_t));
     snprintf(msg->from_name, strlen(from), from);
-    snprintf(msg->content, strlen(credentials) + 1, "%s", credentials); //ooohhh plaintext! but really... would you seriously use some basic student app?
+    snprintf(msg->content, strlen(credentials) + 1, "%s", credentials);
     msg->type = PUBLIC_REQ;
     msg->to_id = SERVER_UID;
 

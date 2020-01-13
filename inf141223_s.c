@@ -41,20 +41,81 @@ int main(int argc, char* argv[])
 
 void run(database_t *db)
 {
-    while(!quit_flag)
+    user_t *current = db->users;
+    do
     {
-        user_t *current = db->users;
-        do
-        {
-            receive_messages(current, db);
-        } while((current = current->next) != NULL);
-        usleep(1000);
+        run_thread_for_user(db, current);
+    } while((current = current->next) != NULL);
 
+    while(!quit_flag) {
         receive_login_req(db);
     }
 
-    close_all_ipcs(db);
-    free(db);
+    finish_all_threads(db);
+    close_server_ipc(db);
+}
+
+void run_thread_for_user(database_t *db, user_t *user)
+{
+    pthread_mutex_lock(&db->mutex);
+
+    thread_arg_t *args = malloc(sizeof(thread_arg_t));
+    args->user = user;
+    args->db = db;
+
+    pthread_t thread;
+    pthread_create(&thread, NULL, user_thread, (void*) args);
+
+    user->thread = thread;
+    pthread_mutex_unlock(&db->mutex);
+
+}
+
+void finish_all_threads(database_t *db)
+{
+    pthread_mutex_unlock(&db->mutex);
+
+    user_t *current = db->users;
+    do
+    {
+        int *exit_code;
+        pthread_join(current->thread, (void**) &exit_code);
+
+        printf("Finished thread for user %s.\n", current->name);
+    } while((current = current->next) != NULL);
+
+    pthread_mutex_lock(&db->mutex);
+}
+
+void close_server_ipc(database_t *db)
+{
+    printf("Removing IPC for server... ");
+    if(msgctl(db->public_user->ipc, IPC_RMID, NULL) == 0)
+    {
+        printf("[DONE]\n");
+    }
+    else
+    {
+        printf("[FAILED]\n");
+    }
+}
+
+void *user_thread(void *vargp)
+{
+    thread_arg_t *args = (thread_arg_t*) vargp;
+    user_t *user = args->user;
+    database_t *db = args->db;
+
+    printf("Thread for user %s started.\n", user->name);
+    while(!quit_flag) {
+        receive_messages(user, db);
+        usleep(1000);
+    }
+
+    close_ipc(user, db);
+    free(vargp);
+
+    pthread_exit(NULL);
 }
 
 void receive_login_req(database_t *db)
@@ -63,11 +124,13 @@ void receive_login_req(database_t *db)
     char response[MAX_MSG_SIZE];
     if(msgrcv(db->public_user->ipc, &login_req, sizeof(login_req), PUBLIC_REQ, IPC_NOWAIT) != -1)
     {
+        pthread_mutex_lock(&db->mutex);
         char* username = strtok(login_req.content, ":");
         char* password = strtok(NULL, ":");
 
         login(username, password, db, response);
         send_server_msg(db->public_user, response);
+        pthread_mutex_unlock(&db->mutex);
     }
 }
 
@@ -90,24 +153,9 @@ void login(const char* username, const char* password, database_t *db, char* res
     sprintf(response, "Incorrect login or/and password!\n");
 }
 
-void close_all_ipcs(database_t *db)
-{
-    user_t *current = db->users;
-    do
-    {
-        printf("Removing IPC for user %s... ", current->name);
-        if(msgctl(current->ipc, IPC_RMID, NULL) == 0)
-        {
-            printf("[DONE]\n");
-        }
-        else
-        {
-            printf("[FAILED]\n");
-        }
-    } while((current = current->next) != NULL);
-
-    printf("Removing IPC for server... ");
-    if(msgctl(db->public_user->ipc, IPC_RMID, NULL) == 0)
+void close_ipc(user_t *user, database_t *db) {
+    printf("Removing IPC for user %s... ", user->name);
+    if(msgctl(user->ipc, IPC_RMID, NULL) == 0)
     {
         printf("[DONE]\n");
     }
@@ -123,22 +171,34 @@ void receive_messages(user_t *user, database_t *db)
 
     if(msgrcv(user->ipc, &outgoing_to_user, sizeof(message_t), OUTGOING_TO_USER, IPC_NOWAIT) != -1)
     {
+        pthread_mutex_lock(&(db->mutex));
+
         printf("Got user to user massage!\n");
         user_t *to = find_user(outgoing_to_user.to_id, db);
 
         send_to_user(user, to, outgoing_to_user.content);
+
+        pthread_mutex_unlock(&(db->mutex));
     }
     if(msgrcv(user->ipc, &outgoing_to_group, sizeof(message_t), OUTGOING_TO_GROUP, IPC_NOWAIT) != -1)
     {
+        pthread_mutex_lock(&(db->mutex));
+
         printf("Got user to group message!\n");
         group_t *to = find_group(outgoing_to_group.to_id, db);
 
         send_to_group(user, to, outgoing_to_group.content, db);
+
+        pthread_mutex_unlock(&(db->mutex));
     }
     if(msgrcv(user->ipc, &server_request, sizeof(message_t), SERVER_REQ, IPC_NOWAIT) != -1)
     {
+        pthread_mutex_lock(&(db->mutex));
+
         printf("Got server request!\n");
         process_request(user, server_request.content, db);
+
+        pthread_mutex_unlock(&(db->mutex));
     }
 }
 
@@ -450,6 +510,8 @@ int setup(char filename[], database_t *db)
     {
         printf("[DONE]\n");
     }
+
+    pthread_mutex_init(&(db->mutex), NULL);
 
     return EXIT_SUCCESS;
 }
