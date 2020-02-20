@@ -239,10 +239,6 @@ void send_to_group(user_t *from, group_t *to, char content[], database_t *db)
     } while((current = current->next) != NULL);
 }
 
-//void send_server_msg()
-
-
-
 void send_server_msg(user_t *user, const char content[])
 {
     int ipc = user->ipc;
@@ -345,15 +341,85 @@ void process_request(user_t *user, char request[], database_t *db)
     }
 }
 
+void get_all_lines(char **lines, int *nlines, int fd)
+{
+    char buffer[MAX_BUFFER_SIZE];
+    read(fd, buffer, MAX_BUFFER_SIZE);
+    int len = 0;
+
+    for(int i = 0; i < MAX_BUFFER_SIZE; i++)
+    {
+        if(buffer[i] == '\0')
+            break;
+        else
+            len++;
+    }
+
+    split_by(buffer, len, lines, nlines, '\n');
+}
+
+void split_by(char *src, int src_len, char **words, int *nwords, char delimiter)
+{
+    char buffer[MAX_MSG_SIZE];
+    char current_character_buffer;
+    (*nwords) = 0;
+    int characters_iterator = 0;
+
+    words[0] = malloc(MAX_MSG_SIZE * sizeof(char));
+
+    for(int i = 0; i < src_len; i++)
+    {
+        current_character_buffer = src[i];
+        if(!(current_character_buffer == delimiter || current_character_buffer == '\0'))
+        {
+            buffer[characters_iterator] = current_character_buffer;
+            characters_iterator++;
+        } else
+        {
+            strcpy(words[*nwords], buffer);
+            (*nwords)++;
+            characters_iterator = 0;
+            memset(buffer, 0, MAX_MSG_SIZE);
+
+            if(current_character_buffer != '\0')
+            {
+                words[*nwords] = malloc(MAX_MSG_SIZE * sizeof(char));
+            }
+        }
+    }
+}
+
+char* find_char(char *line, int len, char chr)
+{
+    if(line != NULL)
+    {
+        for(int i = 0; i < len; i++)
+        {
+            if (line[i] == chr || line[i] == '\0')
+                return line + i;
+        }
+    }
+
+    return NULL;
+}
+
+int str_len(char *str)
+{
+    int i = 0;
+    while(str[i++] != '\0');
+    return i;
+}
+
 int setup(char filename[], database_t *db)
 {
     printf("Setting up configuration...\n");
-    FILE *fp;
-    char *line;
+    int fp;
+    char* lines[MAX_BUFFER_SIZE];
+    int nlines = 0;
     size_t len;
-    fp = fopen(filename, "r");
+    fp = open(filename, O_RDONLY);
     printf("Opening file... ");
-    if(fp == NULL)
+    if(fp == -1)
     {
         printf("[FAILED]\n");
         return EXIT_FAILURE;
@@ -363,19 +429,30 @@ int setup(char filename[], database_t *db)
         printf("[DONE]\n");
     }
 
-    while(getline(&line, &len, fp) > 0)
+    get_all_lines(lines, &nlines, fp);
+
+    for(int i = 0; i < nlines; i++)
     {
         //char *formatted_line = strchr(line, '\n');
-        char formatted_line[10000];
-        strcpy(formatted_line, line);
-        char *buffer = strchr(formatted_line, '\n');
+        char formatted_line[MAX_BUFFER_SIZE];
+        strcpy(formatted_line, lines[i]);
+        //char *buffer = strchr(formatted_line, '\n');
+        char *buffer = find_char(formatted_line, MAX_BUFFER_SIZE, '\n');
         if(buffer != NULL)
             *buffer = '\0';
 
-        char *key_id = strtok(formatted_line, ":");
-        char *id = strtok(NULL, ":");
-        char *key_name = strtok(NULL, ":");
-        char *name = strtok(NULL, ":");
+        int properties_counter = 0;
+        char *properties[PROPERTIES_COUNT];
+        split_by(formatted_line, buffer - formatted_line + 1, properties, &properties_counter, ':');
+//        char *key_id = strtok(formatted_line, ":");
+//        char *id = strtok(NULL, ":");
+//        char *key_name = strtok(NULL, ":");
+//        char *name = strtok(NULL, ":");
+        char *key_id = properties[0];
+        char *id = properties[1];
+        char *key_name = properties[2];
+        char *name = properties[3];
+
 
         if(strcmp(key_id, "GID") == 0)
         {
@@ -404,8 +481,8 @@ int setup(char filename[], database_t *db)
         }
         else if(strcmp(key_id, "UID") == 0)
         {
-            char* password = strtok(NULL,":");
-            char *groups = strtok(NULL, ":");
+            char* password = properties[4];
+            char *groups = properties[5];
 
             user_t *user = malloc(sizeof(user_t));
             user->id = (int) strtol(id, (char**) NULL, 10);
@@ -427,25 +504,29 @@ int setup(char filename[], database_t *db)
                 return EXIT_FAILURE;
             }
 
-            char *gid_str = strtok(groups, ",");
-            if(gid_str != NULL)
-            {
-                do
-                {
-                    int gid = (int) strtol(gid_str, (char**) NULL, 10);
-                    group_t *group = find_group(gid, db);
-                    if(group != NULL)
-                    {
-                        user->groups = insertListElement(user->groups, gid);
-                        group->users = insertListElement(group->users, user->id);
-                    }
-                    else
-                    {
-                        printf("No such group error!\n");
-                    }
+            int group_count = 0;
+            int gid_str_len = str_len(groups);
+            char *groups_formatted[MAX_BUFFER_SIZE];
 
-                } while((gid_str = strtok(NULL, ",")) != NULL);
+            split_by(groups, gid_str_len, groups_formatted, &group_count, ',');
+            //char *gid_str = strtok(groups, ",");
+
+            for(int k = 0; k < group_count; k++)
+            {
+                int gid = (int) strtol(groups_formatted[k], (char**) NULL, 10);
+                group_t *group = find_group(gid, db);
+                if(group != NULL)
+                {
+                    user->groups = insertListElement(user->groups, gid);
+                    group->users = insertListElement(group->users, user->id);
+                }
+                else
+                {
+                    printf("No such group error!\n");
+                }
+
             }
+
 
             int ipc = create_ipc_for_user(user);
             if(ipc == -1)
@@ -475,26 +556,12 @@ int setup(char filename[], database_t *db)
             printf("Parsing error!\n");
             return EXIT_FAILURE;
         }
+
+        memset(formatted_line, 0, MAX_BUFFER_SIZE);
     }
 
-    fclose(fp);
-    if(line)
-    {
-        free(line);
-    }
-
+    close(fp);
     printf("Creating public IPC... ");
-//    int public_ipc = create_public_ipc();
-//    if(public_ipc == -1)
-//    {
-//        printf("[FAILED]\n");
-//        return EXIT_FAILURE;
-//    }
-//    else
-//    {
-//        db->public_ipc = public_ipc;
-//        printf("[DONE]\n");
-//    }
 
     if(setup_public_user(db) != 0)
     {

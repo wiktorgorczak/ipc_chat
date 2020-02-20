@@ -24,6 +24,8 @@
 #define GET_GROUPS_REQ "groups"
 #define GET_ENLISTED_REQ "enlisted"
 #define GET_ACTIVE_REQ "active"
+#define MAX_BUFFER_SIZE 10000
+#define PROPERTIES_COUNT 6
 
 #define KEY 2137
 #include "data_structures/linked_list.h"
@@ -121,5 +123,8 @@ void get_active_users(database_t *db, char* response);
 void login(const char* username, const char* password, database_t *db, char* response);
 void logoff(user_t *user, char* response);
 void send_server_msg(user_t *user, const char content[]);
+
+void get_all_lines(char **lines, int *nlines, int fd);
+void split_by(char *src, int src_len, char **words, int *nwords, char delimiter);
 
 #endif //IPC_IM_INF141223_S_H
