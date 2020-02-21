@@ -67,7 +67,6 @@ struct user_t
 {
     int id, ipc;
     bool connected;
-    bool blocked;
     char name[MAX_USR_NAME_SIZE];
     ListElement *groups;
     user_t *next;

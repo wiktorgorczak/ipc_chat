@@ -6,14 +6,14 @@
 // Client application source
 #include "inf141223_k.h"
 
-bool quit_flag = false;
-
+//bool quit_flag = false;
+bool *quit_flag;
 void quit(int signal)
 {
     if(signal == SIGINT)
     {
         printf("\nQuiting the client...\n");
-        quit_flag = true;
+        *quit_flag = true;
         exit(EXIT_SUCCESS);
     }
 }
@@ -91,11 +91,28 @@ int login(char *credentials, session_t *session)
     return 0;
 }
 
-void *refresh_chat(void *vargp)
+//void *refresh_chat(void *vargp)
+//{
+//    session_t *session = (session_t*) vargp;
+//    int ipc = msgget(session->ipc_key, 0666|IPC_CREAT);
+//    while(!quit_flag)
+//    {
+//        message_t msg;
+//        msgrcv(ipc, &msg, sizeof(msg), INCOMING, 0);
+//        printf("\n[%s]: %s\n", msg.from_name, msg.content);
+//
+//        if(strcmp(msg.from_name, "server") == 0 && strcmp(msg.content, "You got disconnected from the server.\n") == 0)
+//            exit(EXIT_SUCCESS);
+//        sleep(1);
+//    }
+//
+//    msgctl(ipc, IPC_RMID, NULL);
+//}
+
+void refresh_chat(session_t *session)
 {
-    session_t *session = (session_t*) vargp;
     int ipc = msgget(session->ipc_key, 0666|IPC_CREAT);
-    while(!quit_flag)
+    while(!(*quit_flag))
     {
         message_t msg;
         msgrcv(ipc, &msg, sizeof(msg), INCOMING, 0);
@@ -178,9 +195,23 @@ void compose_message(session_t *session)
     msgsnd(session->ipc_main_thread, &msg, sizeof(msg), 0);
 }
 
+key_t generate_shared_mem_key()
+{
+    unsigned long timestamp = time(NULL);
+    unsigned long tmp = timestamp / 100000;
+    tmp *= 100000;
+    timestamp -= tmp;
+    int key_i = (int) timestamp;
+    key_t key = key_i;
+
+    return key;
+}
+
 int main(int argc, char **argv)
 {
     signal(SIGINT, quit);
+
+    key_t key = generate_shared_mem_key();
 
     char credentials[MAX_MSG_SIZE];
     *credentials = '\0';
@@ -194,12 +225,26 @@ int main(int argc, char **argv)
 
     printf("Logged in successfully!\n");
 
-    pthread_t receiving_thread;
-    pthread_create(&receiving_thread, NULL, refresh_chat, (void *)session);
+//    pthread_t receiving_thread;
+//    pthread_create(&receiving_thread, NULL, refresh_chat, (void *)session);
 
-    while(!quit_flag)
-    {
-        compose_message(session);
+    session_t recv_session;
+    recv_session.ipc_main_thread = session->ipc_main_thread;
+    strcpy(recv_session.username, session->username);
+    recv_session.uid = session->uid;
+    recv_session.ipc_key = session->ipc_key;
+
+    if(fork() == 0) {
+        int shmid = shmget(key, sizeof(bool), IPC_CREAT | 0666);
+        quit_flag = shmat(shmid, NULL, SHM_RDONLY);
+        refresh_chat(&recv_session);
+    } else {
+        int shmid = shmget(key, sizeof(bool), IPC_CREAT | 0666);
+        quit_flag = shmat(shmid, NULL, 0);
+        while(!(*quit_flag))
+        {
+            compose_message(session);
+        }
     }
 
     msgctl(session->ipc_main_thread, IPC_RMID, NULL);

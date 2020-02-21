@@ -542,7 +542,7 @@ int setup(char filename[], database_t *db)
 
             user->ipc = ipc;
             user->connected = false;
-            user->blocked = false;
+//            user->blocked = false;
 
             if(db->users == NULL)
             {

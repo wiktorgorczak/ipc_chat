@@ -15,6 +15,9 @@
 #define SERVER_USR_NAME "server"
 #define PUBLIC_USER_NAME "server"
 #define PUBLIC_UID 0
+#define SHARED_MEM_CONST 12345
+#include <sys/shm.h>
+
 #include <sys/ipc.h>
 #include <sys/msg.h>
 #include <string.h>
@@ -55,25 +58,14 @@ struct session_t
 };
 
 void prompt_login(char *credentials);
-void *refresh_chat(void *vargp);
+//void *refresh_chat(void *vargp);
+void refresh_chat(session_t *session);
 void compose_message(session_t *session);
 void quit(int signal);
 
 void scan_string(char *dest);
 void scan_decimal(int *dest);
 
-int run(session_t *session);
 int login(char *credentials, session_t *session);
-int logoff(session_t *session);
-int get_active_users(session_t *session);
-int get_users_for_group(int gid, session_t *session);
-int get_groups(session_t *session);
-int enlist(int gid, session_t *session);
-int unlist(int gid, session_t *session);
-
-int send_message_to_user(int uid, char message[], session_t *session);
-int send_message_to_group(int gid, char message[], session_t *session);
-
-int receive(session_t *session);
 
 #endif //IPC_IM_INF141223_K_H
