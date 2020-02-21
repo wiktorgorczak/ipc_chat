@@ -67,6 +67,7 @@ struct user_t
 {
     int id, ipc;
     bool connected;
+    bool blocked;
     char name[MAX_USR_NAME_SIZE];
     ListElement *groups;
     user_t *next;
@@ -123,6 +124,7 @@ void get_active_users(database_t *db, char* response);
 void login(const char* username, const char* password, database_t *db, char* response);
 void logoff(user_t *user, char* response);
 void send_server_msg(user_t *user, const char content[]);
+void finish_user_thread(user_t *user);
 
 void get_all_lines(char **lines, int *nlines, int fd);
 void split_by(char *src, int src_len, char **words, int *nwords, char delimiter);

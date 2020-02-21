@@ -20,12 +20,10 @@ void quit(int signal)
 
 void prompt_login(char *credentials)
 {
-    //TODO: documentation on this
     char login[MAX_MSG_SIZE/2];
     char password[MAX_MSG_SIZE/2 - 1];
 
     printf("Enter your login: ");
-//    scanf("%s", login);
     scan_string(login);
     char *login_buffer = strchr(login, '\n');
     if(login_buffer != NULL)
@@ -33,7 +31,6 @@ void prompt_login(char *credentials)
 
     printf("Enter your password: ");
     scan_string(password);
-//    scanf("%s", password);
 
     char *password_buffer = strchr(login, '\n');
     if(password_buffer != NULL)
@@ -143,7 +140,6 @@ void compose_message(session_t *session)
 {
     command_t cmd;
     printf("What kind of message do you want to send?\n1) To user 2) To group 3) Server command\nChoice: ");
-//    scanf("%d", &cmd);
     scan_decimal(&cmd);
 
     message_t msg;
@@ -154,10 +150,8 @@ void compose_message(session_t *session)
         msg.type = OUTGOING_TO_USER;
 
         printf("Enter uid: ");
-//        scanf("%d", &msg.to_id);
         scan_decimal(&msg.to_id);
         printf("Enter message (max %d characters): ", MAX_MSG_SIZE - 2);
-//        scanf("%s", msg.content);
         scan_string(msg.content);
     }
     else if(cmd == OUTGOING_TO_GROUP)
@@ -165,10 +159,8 @@ void compose_message(session_t *session)
         msg.type = OUTGOING_TO_GROUP;
 
         printf("Enter gid: ");
-//        scanf("%d", &msg.to_id);
         scan_decimal(&msg.to_id);
         printf("Enter message (max %d characters): ", MAX_MSG_SIZE - 2);
-//        scanf("%s", msg.content);
         scan_string(msg.content);
     }
     else if(cmd == SERVER_REQ)
@@ -176,7 +168,6 @@ void compose_message(session_t *session)
         msg.type = SERVER_REQ;
         msg.to_id = SERVER_UID;
         printf("Enter command: ");
-//        scanf("%s", msg.content);
         scan_string(msg.content);
     }
     else
@@ -201,7 +192,6 @@ int main(int argc, char **argv)
         prompt_login(credentials);
     } while(login(credentials, session) != 0);
 
-    //msgctl(session->ipc, IPC_RMID, NULL);
     printf("Logged in successfully!\n");
 
     pthread_t receiving_thread;

@@ -42,10 +42,10 @@ int main(int argc, char* argv[])
 void run(database_t *db)
 {
     user_t *current = db->users;
-    do
-    {
-        run_thread_for_user(db, current);
-    } while((current = current->next) != NULL);
+//    do
+//    {
+//        run_thread_for_user(db, current);
+//    } while((current = current->next) != NULL);
 
     while(!quit_flag) {
         receive_login_req(db);
@@ -57,8 +57,7 @@ void run(database_t *db)
 
 void run_thread_for_user(database_t *db, user_t *user)
 {
-    pthread_mutex_lock(&db->mutex);
-
+//    pthread_mutex_lock(&(db->mutex));
     thread_arg_t *args = malloc(sizeof(thread_arg_t));
     args->user = user;
     args->db = db;
@@ -67,8 +66,15 @@ void run_thread_for_user(database_t *db, user_t *user)
     pthread_create(&thread, NULL, user_thread, (void*) args);
 
     user->thread = thread;
-    pthread_mutex_unlock(&db->mutex);
+//    pthread_mutex_unlock(&(db->mutex));
 
+}
+
+void finish_user_thread(user_t *user)
+{
+    int *exit_code;
+    pthread_join(user->thread, (void**) &exit_code);
+    printf("Finished thread for user %s.\n", user->name);
 }
 
 void finish_all_threads(database_t *db)
@@ -78,10 +84,8 @@ void finish_all_threads(database_t *db)
     user_t *current = db->users;
     do
     {
-        int *exit_code;
-        pthread_join(current->thread, (void**) &exit_code);
-
-        printf("Finished thread for user %s.\n", current->name);
+        if(current->connected)
+            finish_user_thread(current);
     } while((current = current->next) != NULL);
 
     pthread_mutex_lock(&db->mutex);
@@ -124,13 +128,13 @@ void receive_login_req(database_t *db)
     char response[MAX_MSG_SIZE];
     if(msgrcv(db->public_user->ipc, &login_req, sizeof(login_req), PUBLIC_REQ, IPC_NOWAIT) != -1)
     {
-        pthread_mutex_lock(&db->mutex);
+        pthread_mutex_lock(&(db->mutex));
         char* username = strtok(login_req.content, ":");
         char* password = strtok(NULL, ":");
 
         login(username, password, db, response);
         send_server_msg(db->public_user, response);
-        pthread_mutex_unlock(&db->mutex);
+        pthread_mutex_unlock(&(db->mutex));
     }
 }
 
@@ -143,6 +147,7 @@ void login(const char* username, const char* password, database_t *db, char* res
         {
             int key = KEY + current->id;
             sprintf(response, "OK:%d:%d", key, current->id);
+            run_thread_for_user(db, current);
             current->connected = true;
 
             printf("User logged in!");
@@ -537,6 +542,7 @@ int setup(char filename[], database_t *db)
 
             user->ipc = ipc;
             user->connected = false;
+            user->blocked = false;
 
             if(db->users == NULL)
             {
@@ -792,6 +798,7 @@ void get_active_users(database_t *db, char* response)
 void logoff(user_t *user, char* response)
 {
     user->connected = false;
+    finish_user_thread(user);
     char response_text[] = "You got disconnected from the server.\n";
     snprintf(response, strlen(response_text) + 1, "%s", response_text);
 }
